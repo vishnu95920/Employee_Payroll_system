@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employees Payroll System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f9;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .form-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        .delete-btn {
+            background-color: #dc3545;
+        }
+        .delete-btn:hover {
+            background-color: #c82333;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+        #parttimeFields {
+            display: none;
+        }
+        .error {
+            color: red;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1> Employee Payroll System</h1>
+        <div class="form-container">
+            <h3>Add Employee</h3>
+            <form id="addEmployeeForm">
+                <div class="form-group">
+                    <label for="name">Name</label>
+                    <input type="text" id="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="id">ID</label>
+                    <input type="number" id="id" required>
+                </div>
+                <div class="form-group">
+                    <label for="type">Employee Type</label>
+                    <select id="type" onchange="toggleFields()">
+                        <option value="fulltime">Full-Time</option>
+                        <option value="parttime">Part-Time</option>
+                    </select>
+                </div>
+                <div class="form-group" id="fulltimeFields">
+                    <label for="monthlySalary">Monthly Salary</label>
+                    <input type="number" id="monthlySalary" step="0.01">
+                </div>
+                <div class="form-group" id="parttimeFields">
+                    <label for="hours">Hours</label>
+                    <input type="number" id="hours" step="1">
+                    <label for="hourlyRate">Hourly Rate</label>
+                    <input type="number" id="hourlyRate" step="0.01">
+                </div>
+                <button type="submit">Add Employee</button>
+                <p id="formError" class="error"></p>
+            </form>
+        </div>
+        <h3>Employee List</h3>
+        <table id="employeeTable">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>ID</th>
+                    <th>Salary</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    <script>
+        // Toggle form fields based on employee type
+        function toggleFields() {
+            const type = document.getElementById('type').value;
+            document.getElementById('fulltimeFields').style.display = type === 'fulltime' ? 'block' : 'none';
+            document.getElementById('parttimeFields').style.display = type === 'parttime' ? 'block' : 'none';
+        }
+
+        // Fetch and display employees
+        async function fetchEmployees() {
+            try {
+                const response = await fetch('http://localhost:8080/api/employees');
+                const employees = await response.json();
+                const tbody = document.querySelector('#employeeTable tbody');
+                tbody.innerHTML = '';
+                employees.forEach(emp => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${emp.name}</td>
+                        <td>${emp.id}</td>
+                        <td>$${emp.salary.toFixed(2)}</td>
+                        <td><button class="delete-btn" onclick="deleteEmployee(${emp.id})">Delete</button></td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error fetching employees:', error);
+            }
+        }
+
+        // Add employee
+        document.getElementById('addEmployeeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('name').value;
+            const id = Number(document.getElementById('id').value);
+            const type = document.getElementById('type').value;
+            const formError = document.getElementById('formError');
+
+            let payload;
+            if (type === 'fulltime') {
+                const monthlySalary = Number(document.getElementById('monthlySalary').value);
+                if (!name || !id || !monthlySalary || monthlySalary < 0) {
+                    formError.textContent = 'Please fill all fields with valid values.';
+                    return;
+                }
+                payload = { name, id, type, salary: monthlySalary };
+            } else {
+                const hours = Number(document.getElementById('hours').value);
+                const hourlyRate = Number(document.getElementById('hourlyRate').value);
+                if (!name || !id || !hours || !hourlyRate || hours < 0 || hourlyRate < 0) {
+                    formError.textContent = 'Please fill all fields with valid values.';
+                    return;
+                }
+                payload = { name, id, type, salary: hours * hourlyRate };
+            }
+
+            try {
+                await fetch('http://localhost:8080/api/employees', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                document.getElementById('addEmployeeForm').reset();
+                toggleFields();
+                formError.textContent = '';
+                fetchEmployees();
+                alert('Employee added successfully!');
+            } catch (error) {
+                formError.textContent = 'Error adding employee.';
+                console.error('Error:', error);
+            }
+        });
+
+        // Delete employee
+        async function deleteEmployee(id) {
+            try {
+                await fetch(`http://localhost:8080/api/employees/${id}`, {
+                    method: 'DELETE'
+                });
+                fetchEmployees();
+                alert('Employee deleted successfully!');
+            } catch (error) {
+                console.error('Error deleting employee:', error);
+            }
+        }
+
+        // Initial fetch
+        fetchEmployees();
+    </script>
+</body>
+</html>
